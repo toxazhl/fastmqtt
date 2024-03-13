@@ -1,0 +1,2 @@
+class FastMQTTError(Exception):
+    pass

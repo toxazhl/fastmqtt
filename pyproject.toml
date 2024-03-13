@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "fastmqtt"
+version = "0.1.0"
+description = ""
+authors = ["toxazhl <zhltoxa@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/toxazhl/fastmqtt"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+aiomqtt = "^2.0.0"
+
+[tool.poetry.dev-dependencies]
+libcst = "^1.1.0"
+black = "^23.12.1"
+ruff = "^0.1.14"
+
+[tool.black]
+line_length = 99
+exclude = "\\.?venv|\\.?tests|\\.cache"
+
+
+[tool.ruff]
+target-version = "py38"
+line-length = 99
+select = [
+    "C",
+    "DTZ",
+    "E",
+    "F",
+    "I",
+    "ICN",
+    "ISC",
+    "N",
+    "PLC",
+    "PLE",
+    "Q",
+    "S",
+    "T",
+    "W",
+    "YTT",
+    "RET",
+    "SIM",
+    "ASYNC",
+]
+exclude = [
+    ".git",
+    ".venv",
+    ".idea",
+    ".tests",
+    ".cache",
+    "build",
+    "dist",
+    "scripts",
+]
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
