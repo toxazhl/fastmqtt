@@ -1,5 +1,3 @@
-**README.md**
-
 # FastMQTT
 
 A performant, flexible, and user-friendly MQTT client library built on top of aiomqtt. FastMQTT simplifies message handling, advanced subscriptions, and convenient request-response patterns within the MQTT protocol.
