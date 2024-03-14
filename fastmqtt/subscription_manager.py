@@ -8,13 +8,14 @@ from paho.mqtt.packettypes import PacketTypes
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from .exceptions import FastMQTTError
+from .structures import Message
 from .utils import properties_from_dict
 
 if TYPE_CHECKING:
     from .fastmqtt import FastMQTT
 
 
-CallbackType = Callable[[aiomqtt.Message, dict[str, Any]], Awaitable[Any]]
+CallbackType = Callable[[Message], Awaitable[Any]]
 
 
 class Retain(IntEnum):
@@ -56,15 +57,15 @@ class SubscriptionManager:
             ),
             properties=properties,
         )
-        self.fastmqtt.subscriptions_map[identifier] = subscription
+        self.fastmqtt._subscriptions_map[identifier] = subscription
         return identifier
 
     async def subscribe_all(self) -> None:
-        for subscription in self.fastmqtt.subscriptions:
+        for subscription in self.fastmqtt._subscriptions:
             await self.subscribe(subscription)
 
     async def unsubscribe(self, identifier: int, callback: CallbackType | None = None) -> None:
-        subscription = self.fastmqtt.subscriptions_map.get(identifier)
+        subscription = self.fastmqtt._subscriptions_map.get(identifier)
         if subscription is None:
             raise FastMQTTError(f"Unknown subscription identifier {identifier}")
 
@@ -73,4 +74,4 @@ class SubscriptionManager:
 
         if callback is None or not subscription.callbacks:
             await self.fastmqtt.client.unsubscribe(subscription.topic.value)
-            del self.fastmqtt.subscriptions_map[identifier]
+            del self.fastmqtt._subscriptions_map[identifier]

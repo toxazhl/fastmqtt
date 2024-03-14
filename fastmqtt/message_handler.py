@@ -1,11 +1,10 @@
 import asyncio
 import contextlib
 import logging
-from typing import TYPE_CHECKING, Any
-
-import aiomqtt
+from typing import TYPE_CHECKING
 
 from .exceptions import FastMQTTError
+from .structures import Message
 from .subscription_manager import Subscription
 
 if TYPE_CHECKING:
@@ -38,24 +37,20 @@ class MessageHandler:
     async def _wrap_message(
         self,
         subscription: Subscription,
-        message: aiomqtt.Message,
-        properties: dict[str, Any],
+        message: Message,
     ) -> None:
-        results = await asyncio.gather(
-            *(callback(message, properties) for callback in subscription.callbacks)
-        )
+        results = await asyncio.gather(*(callback(message) for callback in subscription.callbacks))
+        response_topic = message.properties.get("ResponseTopic")
+
         response_properties = None
-        response_topic = properties.get("ResponseTopic")
-        correlation_data = properties.get("CorrelationData")
-        if correlation_data is not None:
-            correlation_data_new = bytes.fromhex(correlation_data)
-            response_properties = {"CorrelationData": correlation_data_new}
+        if "CorrelationData" in message.properties:
+            response_properties = {"CorrelationData": message.properties["CorrelationData"]}
 
-        if any(results) and response_topic is None:
-            raise FastMQTTError("Callback returned result, but message has no response_topic")
+        for result in results:
+            if result is not None and response_topic is None:
+                raise FastMQTTError("Callback returned result, but message has no response_topic")
 
-        if response_topic is not None:
-            for result in results:
+            if response_topic is not None:
                 await self.fastmqtt.publish(
                     response_topic,
                     result,
@@ -70,21 +65,18 @@ class MessageHandler:
             while True:
                 try:
                     async for message in self.fastmqtt.client.messages:
-                        if message.properties is None:
-                            log.error("Message has no properties (%s)", message.topic)
-                            continue
-
-                        properties = message.properties.json()
-                        identifiers = properties.get("SubscriptionIdentifier")
-                        if not identifiers:
+                        message = Message._from_aiomqtt_message(self.fastmqtt, message)
+                        if "SubscriptionIdentifier" not in message.properties:
                             log.warning(
                                 "Message has no SubscriptionIdentifier (%s)",
                                 message.topic,
                             )
                             continue
 
+                        identifiers = message.properties["SubscriptionIdentifier"]
+
                         for identifier in identifiers:
-                            subscription = self.fastmqtt.subscriptions_map.get(identifier)
+                            subscription = self.fastmqtt._subscriptions_map.get(identifier)
 
                             if subscription is None:
                                 log.error(
@@ -94,9 +86,7 @@ class MessageHandler:
                                 )
                                 continue
 
-                            asyncio.create_task(
-                                self._wrap_message(subscription, message, properties)
-                            )
+                            asyncio.create_task(self._wrap_message(subscription, message))
 
                 except asyncio.CancelledError:
                     return

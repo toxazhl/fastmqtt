@@ -88,9 +88,10 @@ class FastMQTT(MQTTRouter):
             websocket_path=websocket_path,
             websocket_headers=websocket_headers,
         )
-        self.subscriptions_map: dict[int, Subscription] = {}
-        self.sub_manager = SubscriptionManager(self)
-        self.message_handler = MessageHandler(self)
+        self._subscriptions_map: dict[int, Subscription] = {}
+        self._sub_manager = SubscriptionManager(self)
+        self._message_handler = MessageHandler(self)
+        self._state: dict[str, Any] = {}
 
         if routers is not None:
             for router in routers:
@@ -100,18 +101,28 @@ class FastMQTT(MQTTRouter):
     def identifier(self) -> str:
         return self.client.identifier
 
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._state[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        return self._state[key]
+
+    def __delitem__(self, key: str) -> None:
+        del self._state[key]
+
     async def __aenter__(self):
+        self._started = True
         await self.client.__aenter__()
-        await self.message_handler.__aenter__()
+        await self._message_handler.__aenter__()
         await self.subscribe_all()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.client.__aexit__(exc_type, exc_value, traceback)
-        await self.message_handler.__aexit__(exc_type, exc_value, traceback)
+        await self._message_handler.__aexit__(exc_type, exc_value, traceback)
 
     async def subscribe_all(self) -> None:
-        await self.sub_manager.subscribe_all()
+        await self._sub_manager.subscribe_all()
 
     async def publish(
         self,

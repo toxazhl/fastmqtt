@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 import aiomqtt
 
+from .exceptions import FastMQTTError
 from .subscription_manager import (
     CallbackType,
     Retain,
@@ -14,7 +15,8 @@ log = logging.getLogger(__name__)
 
 class MQTTRouter:
     def __init__(self):
-        self.subscriptions: list[Subscription] = []
+        self._subscriptions: list[Subscription] = []
+        self._started = False
 
     def _check_different(self, subscription: Subscription, **new_attrs) -> None:
         for name, value in new_attrs.items():
@@ -30,14 +32,17 @@ class MQTTRouter:
                 )
 
     def include_router(self, router: "MQTTRouter") -> None:
-        included_subscriptions = self.subscriptions.copy()
-        for router_sub in router.subscriptions:
+        if self._started:
+            raise FastMQTTError("Cannot include router after starting")
+
+        included_subscriptions = self._subscriptions.copy()
+        for router_sub in router._subscriptions:
             for included_sub in included_subscriptions:
                 if included_sub.topic == router_sub.topic:
                     included_sub.callbacks.extend(router_sub.callbacks)
                     break
             else:
-                self.subscriptions.append(router_sub)
+                self._subscriptions.append(router_sub)
 
     def register(
         self,
@@ -48,7 +53,7 @@ class MQTTRouter:
         retain_as_published: bool = False,
         retain_handling: Retain = Retain.SEND_ON_SUBSCRIBE,
     ) -> Subscription:
-        for subscription in self.subscriptions:
+        for subscription in self._subscriptions:
             if str(subscription.topic) == topic:
                 subscription.callbacks.append(callback)
                 self._check_different(
@@ -69,7 +74,7 @@ class MQTTRouter:
             retain_handling,
         )
 
-        self.subscriptions.append(subscription)
+        self._subscriptions.append(subscription)
 
         return subscription
 

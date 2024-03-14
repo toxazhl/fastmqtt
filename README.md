@@ -26,14 +26,14 @@ from fastmqtt import FastMQTT, MQTTRouter
 router = MQTTRouter()
 
 @router.on_message("my/topic")  # Subscribe and handle incoming messages
-async def message_handler(message: Message, properties: dict):
+async def message_handler(message: Message):
     print(f"Message received: {message.payload.decode()} on topic {message.topic}")
 
 async def main():
-    client = FastMQTT("mqtt.example.com", routers=[router]) 
+    fastmqtt = FastMQTT("mqtt.example.com", routers=[router]) 
 
-    async with client:  # Connect and automatically handle subscriptions
-        await client.publish("my/topic", "Hello from FastMQTT!")
+    async with fastmqtt:  # Connect and automatically handle subscriptions
+        await fastmqtt.publish("my/topic", "Hello from FastMQTT!")
         await asyncio.sleep(5)  # Keep running for a bit 
 
 if __name__ == "__main__":
@@ -44,17 +44,40 @@ if __name__ == "__main__":
 
 ```python
 @router.on_message("temperature/request")
-async def temp_request_handler(message: Message, properties: dict):
+async def temp_request_handler(message: Message):
     # Simulate getting a temperature reading
     return 25  # Return the temperature
 
 async def main():
-    client = FastMQTT("mqtt.example.com", routers=[router])
+    fastmqtt = FastMQTT("mqtt.example.com", routers=[router])
 
-    async with client:
-        async with client.response_context(f"temperature/response/{client.identifier}") as ctx:
+    async with fastmqtt:
+        async with fastmqtt.response_context(f"temperature/response/{fastmqtt.identifier}") as ctx:
             response = await ctx.request("temperature/request")
             print(f"Temperature: {response.payload.decode()}") 
+```
+
+**Passing data Example**
+
+```python
+import asyncio
+from fastmqtt import FastMQTT, MQTTRouter
+
+router = MQTTRouter()
+
+@router.on_message("my/topic")  # Subscribe and handle incoming messages
+async def message_handler(message: Message, properties: dict):
+    print(f"Message received: {message.payload.decode()} on topic {message.topic}")
+
+async def main():
+    fastmqtt = FastMQTT("mqtt.example.com", routers=[router]) 
+
+    async with fastmqtt:  # Connect and automatically handle subscriptions
+        await fastmqtt.publish("my/topic", "Hello from FastMQTT!")
+        await asyncio.sleep(5)  # Keep running for a bit 
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 **Contributions**

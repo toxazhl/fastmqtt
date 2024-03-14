@@ -2,10 +2,10 @@ import asyncio
 import itertools
 from typing import TYPE_CHECKING, Any, Callable
 
-from aiomqtt import Message
 from aiomqtt.types import PayloadType
 
 from .exceptions import FastMQTTError
+from .structures import Message
 from .subscription_manager import Retain, Subscription
 
 if TYPE_CHECKING:
@@ -46,11 +46,11 @@ class ResponseContext:
             self._qos,
             retain_handling=Retain.DO_NOT_SEND,
         )
-        self._identifier = await self._fastmqtt.sub_manager.subscribe(self._subscription)
+        self._identifier = await self._fastmqtt._sub_manager.subscribe(self._subscription)
 
     async def close(self) -> None:
         if self._identifier is not None:
-            await self._fastmqtt.sub_manager.unsubscribe(self._identifier, self._callback)
+            await self._fastmqtt._sub_manager.unsubscribe(self._identifier, self._callback)
 
         self._identifier = None
         self._subscription = None
@@ -64,14 +64,14 @@ class ResponseContext:
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.close()
 
-    async def _callback(self, message: Message, properties: dict[str, Any]) -> None:
-        correlation_data = properties.get("CorrelationData")
+    async def _callback(self, message: Message) -> None:
+        correlation_data = message.properties.get("CorrelationData")
         if correlation_data is None:
             raise FastMQTTError(
-                f"correlation_data is None in response callback ({message.topic.value})"
+                f"correlation_data is None in response callback ({message.topic})"
             )
 
-        future = self._futures.pop(bytes.fromhex(correlation_data))
+        future = self._futures.pop(correlation_data)
         future.set_result(message)
 
     async def request(
