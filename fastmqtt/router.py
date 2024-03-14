@@ -29,6 +29,16 @@ class MQTTRouter:
                     value,
                 )
 
+    def include_router(self, router: "MQTTRouter") -> None:
+        included_subscriptions = self.subscriptions.copy()
+        for router_sub in router.subscriptions:
+            for included_sub in included_subscriptions:
+                if included_sub.topic == router_sub.topic:
+                    included_sub.callbacks.extend(router_sub.callbacks)
+                    break
+            else:
+                self.subscriptions.append(router_sub)
+
     def register(
         self,
         callback: CallbackType,
