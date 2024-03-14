@@ -67,9 +67,7 @@ class ResponseContext:
     async def _callback(self, message: Message) -> None:
         correlation_data = message.properties.get("CorrelationData")
         if correlation_data is None:
-            raise FastMQTTError(
-                f"correlation_data is None in response callback ({message.topic})"
-            )
+            raise FastMQTTError(f"correlation_data is None in response callback ({message.topic})")
 
         future = self._futures.pop(correlation_data)
         future.set_result(message)
@@ -81,6 +79,7 @@ class ResponseContext:
         qos: int = 0,
         retain: bool = False,
         properties: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> Message:
         if properties is None:
             properties = {}
@@ -96,14 +95,15 @@ class ResponseContext:
         future = asyncio.Future[Message]()
         self._futures[correlation_data] = future
         try:
-            await self._fastmqtt.publish(
-                topic=topic,
-                payload=payload,
-                qos=qos,
-                retain=retain,
-                properties=properties,
-            )
-            return await future
+            async with asyncio.timeout(timeout or self._default_timeout):
+                await self._fastmqtt.publish(
+                    topic=topic,
+                    payload=payload,
+                    qos=qos,
+                    retain=retain,
+                    properties=properties,
+                )
+                return await future
 
         finally:
             self._futures.pop(correlation_data, None)
