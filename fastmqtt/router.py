@@ -67,7 +67,7 @@ class MQTTRouter:
 
         subscription = Subscription(
             [callback],
-            aiomqtt.Topic(topic),
+            topic,
             qos,
             no_local,
             retain_as_published,

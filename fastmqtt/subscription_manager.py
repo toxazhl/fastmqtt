@@ -27,7 +27,7 @@ class Retain(IntEnum):
 @dataclass
 class Subscription:
     callbacks: list[CallbackType]
-    topic: aiomqtt.Topic
+    topic: str
     qos: int = 0
     no_local: bool = False
     retain_as_published: bool = False
@@ -47,7 +47,7 @@ class SubscriptionManager:
         )
 
         await self.fastmqtt.client.subscribe(
-            topic=subscription.topic.value,
+            topic=subscription.topic,
             qos=subscription.qos,
             options=SubscribeOptions(
                 qos=subscription.qos,
@@ -73,5 +73,5 @@ class SubscriptionManager:
             subscription.callbacks.remove(callback)
 
         if callback is None or not subscription.callbacks:
-            await self.fastmqtt.client.unsubscribe(subscription.topic.value)
+            await self.fastmqtt.client.unsubscribe(subscription.topic)
             del self.fastmqtt._subscriptions_map[identifier]
