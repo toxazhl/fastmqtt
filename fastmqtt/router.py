@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Callable
 
-import aiomqtt
-
 from .exceptions import FastMQTTError
 from .subscription_manager import (
     CallbackType,

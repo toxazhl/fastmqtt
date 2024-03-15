@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-import aiomqtt
 from paho.mqtt.packettypes import PacketTypes
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
