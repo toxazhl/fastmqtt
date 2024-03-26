@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 from aiomqtt.types import PayloadType
@@ -10,6 +11,8 @@ from .subscription_manager import Retain, Subscription
 
 if TYPE_CHECKING:
     from .fastmqtt import FastMQTT
+
+log = logging.getLogger(__name__)
 
 
 class CorrelationIntGenerator:
@@ -54,6 +57,7 @@ class ResponseContext:
 
         self._identifier = None
         self._subscription = None
+
         for future in self._futures.values():
             future.cancel()
 
@@ -69,7 +73,11 @@ class ResponseContext:
         if correlation_data is None:
             raise FastMQTTError(f"correlation_data is None in response callback ({message.topic})")
 
-        future = self._futures.pop(correlation_data)
+        future = self._futures.pop(correlation_data, None)
+        if future is None:
+            log.warning(f"correlation_data {correlation_data} not found in futures")
+            return
+
         future.set_result(message)
 
     async def request(
