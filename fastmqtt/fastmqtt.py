@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import ssl
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Literal, Sequence
 
-import paho.mqtt.client as mqtt
 from aiomqtt import Client as MQTTClient
 from aiomqtt import (
     Message,
@@ -13,6 +12,8 @@ from aiomqtt import (
     Will,
 )
 from aiomqtt.types import PayloadType, SocketOption
+from paho.mqtt import client as mqtt
+from paho.mqtt import properties as mqtt_properties
 from paho.mqtt.packettypes import PacketTypes
 
 from .message_handler import MessageHandler
@@ -37,17 +38,17 @@ class FastMQTT(MQTTRouter):
         queue_type: type[asyncio.Queue[Message]] | None = None,
         will: Will | None = None,
         clean_session: bool | None = None,
-        transport: str = "tcp",
+        transport: Literal["tcp", "websockets"] = "tcp",
         timeout: float | None = None,
         keepalive: int = 60,
         bind_address: str = "",
         bind_port: int = 0,
-        clean_start: int = mqtt.MQTT_CLEAN_START_FIRST_ONLY,
+        clean_start: mqtt.CleanStartOption = mqtt.MQTT_CLEAN_START_FIRST_ONLY,
         max_queued_incoming_messages: int | None = None,
         max_queued_outgoing_messages: int | None = None,
         max_inflight_messages: int | None = None,
         max_concurrent_outgoing_calls: int | None = None,
-        properties: mqtt.Properties | None = None,
+        properties: mqtt_properties.Properties | None = None,
         tls_context: ssl.SSLContext | None = None,
         tls_params: TLSParameters | None = None,
         tls_insecure: bool | None = None,
