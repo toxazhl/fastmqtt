@@ -151,6 +151,9 @@ class FastMQTT(MQTTRouter):
         identifier = await self._sub_manager.subscribe(subscription)
         return subscription, identifier
 
+    async def unsubscribe(self, identifier: int, callback: CallbackType | None = None) -> None:
+        await self._sub_manager.unsubscribe(identifier, callback)
+
     async def subscribe_all(self) -> None:
         await self._sub_manager.subscribe_all()
 
