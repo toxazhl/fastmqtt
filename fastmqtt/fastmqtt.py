@@ -16,10 +16,16 @@ from paho.mqtt import client as mqtt
 from paho.mqtt import properties as mqtt_properties
 from paho.mqtt.packettypes import PacketTypes
 
+from .exceptions import FastMQTTError
 from .message_handler import MessageHandler
 from .response import ResponseContext
 from .router import MQTTRouter
-from .subscription_manager import Subscription, SubscriptionManager
+from .subscription_manager import (
+    CallbackType,
+    Retain,
+    Subscription,
+    SubscriptionManager,
+)
 from .utils import properties_from_dict
 
 WebSocketHeaders = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
@@ -121,6 +127,27 @@ class FastMQTT(MQTTRouter):
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.client.__aexit__(exc_type, exc_value, traceback)
         await self._message_handler.__aexit__(exc_type, exc_value, traceback)
+
+    async def subscribe(
+        self,
+        callback: CallbackType,
+        topic: str,
+        qos: int = 0,
+        no_local: bool = False,
+        retain_as_published: bool = False,
+        retain_handling: Retain = Retain.SEND_ON_SUBSCRIBE,
+    ) -> tuple[Subscription, int]:
+        "Should be used for registering after the client is started"
+        subscription = self.register(
+            callback=callback,
+            topic=topic,
+            qos=qos,
+            no_local=no_local,
+            retain_as_published=retain_as_published,
+            retain_handling=retain_handling,
+        )
+        identifier = await self._sub_manager.subscribe(subscription)
+        return subscription, identifier
 
     async def subscribe_all(self) -> None:
         await self._sub_manager.subscribe_all()
