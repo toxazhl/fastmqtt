@@ -99,6 +99,7 @@ class FastMQTT(MQTTRouter):
         self._sub_manager = SubscriptionManager(self)
         self._message_handler = MessageHandler(self)
         self._state: dict[str, Any] = {}
+        self.started = False
 
         if routers is not None:
             for router in routers:
@@ -118,13 +119,14 @@ class FastMQTT(MQTTRouter):
         del self._state[key]
 
     async def __aenter__(self):
-        self._started = True
+        self.started = True
         await self.client.__aenter__()
         await self._message_handler.__aenter__()
         await self.subscribe_all()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
+        self.started = False
         await self.client.__aexit__(exc_type, exc_value, traceback)
         await self._message_handler.__aexit__(exc_type, exc_value, traceback)
 
