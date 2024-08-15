@@ -19,20 +19,20 @@ class BaseConnector(ABC):
         port: int,
         username: str | None = None,
         password: str | None = None,
-        identifier: str | None = None,
+        client_id: str | None = None,
         will=None,
         keepalive: int = 60,
         properties: ConnectProperties | None = None,
         clean_start: CleanStart = CleanStart.FIRST_ONLY,
     ):
-        if identifier is None:
-            identifier = f"fastmqtt-{uuid.uuid4()}"
+        if client_id is None:
+            client_id = f"fastmqtt-{uuid.uuid4()}"
 
         self._hostname = hostname
         self._port = port
         self._username = username
         self._password = password
-        self._identifier = identifier
+        self._client_id = client_id
         self._will = will
         self._keepalive = keepalive
         self._properties = properties
@@ -50,7 +50,7 @@ class BaseConnector(ABC):
 
     @property
     def identifier(self) -> str:
-        return self._identifier
+        return self._client_id
 
     @abstractmethod
     async def subscribe(

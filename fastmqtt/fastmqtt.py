@@ -20,7 +20,7 @@ class FastMqtt(MqttRouter):
         port: int = 1883,
         username: str | None = None,
         password: str | None = None,
-        identifier: str | None = None,
+        client_id: str | None = None,
         will=None,
         keepalive=60,
         properties: ConnectProperties | None = None,
@@ -34,7 +34,7 @@ class FastMqtt(MqttRouter):
             port=port,
             username=username,
             password=password,
-            identifier=identifier,
+            client_id=client_id,
             will=will,
             keepalive=keepalive,
             properties=properties,
@@ -49,8 +49,8 @@ class FastMqtt(MqttRouter):
             self.include_router(router)
 
     @property
-    def identifier(self) -> str:
-        return self._connector._identifier
+    def client_id(self) -> str:
+        return self._connector._client_id
 
     def __setitem__(self, key: str, value: Any) -> None:
         self._state[key] = value
