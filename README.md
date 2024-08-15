@@ -1,6 +1,6 @@
-# FastMqtt
+# FastMQTT
 
-A performant, flexible, and user-friendly MQTT client library built on top of aiomqtt. FastMqtt simplifies message handling, advanced subscriptions, and convenient request-response patterns within the MQTT protocol.
+A performant, flexible, and user-friendly MQTT client library built on top of aiomqtt. FastMQTT simplifies message handling, advanced subscriptions, and convenient request-response patterns within the MQTT protocol.
 
 **Key Features**
 
@@ -22,9 +22,9 @@ pip install fastmqtt
 ```python
 import asyncio
 
-from fastmqtt import FastMqtt, Message
+from fastmqtt import FastMQTT, Message
 
-fastmqtt = FastMqtt("test.mosquitto.org")
+fastmqtt = FastMQTT("test.mosquitto.org")
 
 
 # Use decorator to subscribe to a topic before connecting
@@ -41,9 +41,9 @@ async def main():
         await fastmqtt.subscribe(message_handler, "my/topic/3")
 
         # Publish a message to a topic
-        await fastmqtt.publish("my/topic/1", "Hello from FastMqtt!")
-        await fastmqtt.publish("my/topic/2", "Hello from FastMqtt!")
-        await fastmqtt.publish("my/topic/3", "Hello from FastMqtt!")
+        await fastmqtt.publish("my/topic/1", "Hello from FastMQTT!")
+        await fastmqtt.publish("my/topic/2", "Hello from FastMQTT!")
+        await fastmqtt.publish("my/topic/3", "Hello from FastMQTT!")
         await asyncio.sleep(1)
 
 
@@ -54,6 +54,6 @@ if __name__ == "__main__":
 
 **Contributions**
 
-We welcome contributions to improve FastMqtt! Please open issues for bug reports or feature suggestions, and fork the repository to submit pull requests.
+We welcome contributions to improve FastMQTT! Please open issues for bug reports or feature suggestions, and fork the repository to submit pull requests.
 
 Let me know if you'd like modifications or have specific aspects you want to emphasize in the README! 

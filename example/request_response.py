@@ -1,9 +1,9 @@
 import asyncio
 
-from fastmqtt import FastMqtt, Message, MqttRouter
+from fastmqtt import FastMQTT, Message, MQTTRouter
 from fastmqtt.encoders import JsonDecoder, JsonEncoder
 
-router = MqttRouter()
+router = MQTTRouter()
 
 
 @router.on_message("temperature/request")
@@ -15,7 +15,7 @@ async def temp_request_handler(message: Message):
 
 
 async def main():
-    async with FastMqtt(
+    async with FastMQTT(
         "test.mosquitto.org",
         routers=[router],
         payload_encoder=JsonEncoder(),

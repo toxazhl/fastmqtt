@@ -9,7 +9,7 @@ from .subscription_manager import SubscriptionWithId
 from .types import Message, RetainHandling
 
 if TYPE_CHECKING:
-    from .fastmqtt import FastMqtt
+    from .fastmqtt import FastMQTT
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class CorrelationIntGenerator:
 class ResponseContext:
     def __init__(
         self,
-        fastmqtt: "FastMqtt",
+        fastmqtt: "FastMQTT",
         response_topic: str,
         qos: int = 0,
         default_timeout: float | None = 60,

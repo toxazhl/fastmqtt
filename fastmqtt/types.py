@@ -6,7 +6,7 @@ from .properties import PublishProperties
 
 if TYPE_CHECKING:
     from .encoders import BaseDecoder
-    from .fastmqtt import FastMqtt
+    from .fastmqtt import FastMQTT
 
 
 PayloadType = str | bytes | bytearray | int | float | None
@@ -51,7 +51,7 @@ class RawMessage:
 @dataclass(frozen=True)
 class Message(RawMessage):
     payload: Payload
-    client: "FastMqtt"
+    client: "FastMQTT"
 
 
 CallbackType = Callable[[Message], Coroutine[None, None, Any]]

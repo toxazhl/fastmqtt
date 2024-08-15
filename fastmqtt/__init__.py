@@ -1,6 +1,6 @@
 from .exceptions import FastMqttError
-from .fastmqtt import FastMqtt
-from .router import MqttRouter
+from .fastmqtt import FastMQTT
+from .router import MQTTRouter
 from .types import (
     CallbackType,
     CleanStart,
@@ -11,8 +11,8 @@ from .types import (
 )
 
 __all__ = [
-    "FastMqtt",
-    "MqttRouter",
+    "FastMQTT",
+    "MQTTRouter",
     "CallbackType",
     "CleanStart",
     "Message",

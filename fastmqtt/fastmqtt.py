@@ -5,14 +5,14 @@ from .encoders import BaseDecoder, BaseEncoder, NoneDecoder, NoneEncoder
 from .message_handler import MessageHandler
 from .properties import ConnectProperties, PublishProperties
 from .response import ResponseContext
-from .router import MqttRouter
+from .router import MQTTRouter
 from .subscription_manager import CallbackType, SubscriptionManager
 from .types import RetainHandling, SubscribeOptions, SubscriptionWithId
 
 WebSocketHeaders = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
 
 
-class FastMqtt(MqttRouter):
+class FastMQTT(MQTTRouter):
     def __init__(
         self,
         hostname: str,
@@ -24,7 +24,7 @@ class FastMqtt(MqttRouter):
         keepalive=60,
         properties: ConnectProperties | None = None,
         connector_type: Type[BaseConnector] = AiomqttConnector,
-        routers: Sequence[MqttRouter] | None = None,
+        routers: Sequence[MQTTRouter] | None = None,
         default_subscribe_options: SubscribeOptions | None = None,
         payload_encoder: BaseEncoder = NoneEncoder(),
         payload_decoder: BaseDecoder = NoneDecoder(),

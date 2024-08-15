@@ -10,7 +10,7 @@ from .subscription_manager import Subscription, SubscriptionManager
 from .types import Message, Payload, RawMessage
 
 if TYPE_CHECKING:
-    from .fastmqtt import FastMqtt
+    from .fastmqtt import FastMQTT
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 class MessageHandler:
     def __init__(
         self,
-        fastmqtt: "FastMqtt",
+        fastmqtt: "FastMQTT",
         connector: BaseConnector,
         subscription_manager: SubscriptionManager,
         payload_decoder: BaseDecoder,

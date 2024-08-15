@@ -36,7 +36,7 @@ def merge_subscribe_options(
         raise FastMqttError("Different retain_handling options")
 
 
-class MqttRouter:
+class MQTTRouter:
     def __init__(self, default_subscribe_options: SubscribeOptions | None = None):
         if default_subscribe_options is None:
             default_subscribe_options = SubscribeOptions()
@@ -123,7 +123,7 @@ class MqttRouter:
 
         return wrapper
 
-    def include_router(self, router: "MqttRouter") -> None:
+    def include_router(self, router: "MQTTRouter") -> None:
         if router._default_subscribe_options is None:
             router._default_subscribe_options = self._default_subscribe_options
 
