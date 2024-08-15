@@ -1,7 +1,7 @@
 import asyncio
 
 from .connectors import BaseConnector
-from .exceptions import FastMqttError
+from .exceptions import FastMQTTError
 from .properties import SubscribeProperties
 from .types import CallbackType, Subscription, SubscriptionWithId
 
@@ -70,7 +70,7 @@ class SubscriptionManager:
         self, subscriptions: list[Subscription]
     ) -> list[SubscriptionWithId]:
         if self._id_manager.get_available_count() < len(subscriptions):
-            raise FastMqttError("Not enough subscription identifiers available")
+            raise FastMQTTError("Not enough subscription identifiers available")
 
         await asyncio.sleep(0.1)
         return await asyncio.gather(
@@ -98,7 +98,7 @@ class SubscriptionManager:
             )
 
         if subscription is None:
-            raise FastMqttError("Subscription not found")
+            raise FastMQTTError("Subscription not found")
 
         if callback is not None:
             subscription.callbacks.remove(callback)

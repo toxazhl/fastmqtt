@@ -3,7 +3,7 @@ import itertools
 import logging
 from typing import TYPE_CHECKING, Any, Callable
 
-from .exceptions import FastMqttError
+from .exceptions import FastMQTTError
 from .properties import PublishProperties
 from .subscription_manager import SubscriptionWithId
 from .types import Message, RetainHandling
@@ -89,16 +89,16 @@ class ResponseContext:
     ) -> Message:
         correlation_data = self._correlation_generator()
         if correlation_data in self._futures:
-            raise FastMqttError(f"correlation_data {correlation_data} already in use")
+            raise FastMQTTError(f"correlation_data {correlation_data} already in use")
 
         if properties is None:
             properties = PublishProperties()
 
         if properties.correlation_data is not None:
-            raise FastMqttError("properties.correlation_data is not allowed in request")
+            raise FastMQTTError("properties.correlation_data is not allowed in request")
 
         if properties.response_topic is not None:
-            raise FastMqttError("properties.response_topic is not allowed in request")
+            raise FastMQTTError("properties.response_topic is not allowed in request")
 
         properties.correlation_data = correlation_data
         properties.response_topic = self._response_topic

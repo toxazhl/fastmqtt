@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from .connectors import BaseConnector
 from .encoders import BaseDecoder
-from .exceptions import FastMqttError
+from .exceptions import FastMQTTError
 from .properties import PublishProperties
 from .subscription_manager import Subscription, SubscriptionManager
 from .types import Message, Payload, RawMessage
@@ -59,7 +59,7 @@ class MessageHandler:
             return
 
         if message.properties.response_topic is None:
-            raise FastMqttError("Callback returned result, but message has no response_topic")
+            raise FastMQTTError("Callback returned result, but message has no response_topic")
 
         response_properties = None
         if message.properties.correlation_data is not None:

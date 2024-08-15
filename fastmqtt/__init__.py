@@ -1,4 +1,4 @@
-from .exceptions import FastMqttError
+from .exceptions import FastMQTTError
 from .fastmqtt import FastMQTT
 from .router import MQTTRouter
 from .types import (
@@ -19,5 +19,5 @@ __all__ = [
     "RetainHandling",
     "SubscribeOptions",
     "Subscription",
-    "FastMqttError",
+    "FastMQTTError",
 ]

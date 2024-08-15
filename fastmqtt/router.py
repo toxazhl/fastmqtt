@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Callable
 
-from .exceptions import FastMqttError
+from .exceptions import FastMQTTError
 from .types import CallbackType, RetainHandling, SubscribeOptions, Subscription
 
 log = logging.getLogger(__name__)
@@ -29,11 +29,11 @@ def merge_subscribe_options(
     options_exist.qos = max(options_exist.qos, options_new.qos)
 
     if options_exist.no_local != options_new.no_local:
-        raise FastMqttError("Different no_local options")
+        raise FastMQTTError("Different no_local options")
     if options_exist.retain_as_published != options_new.retain_as_published:
-        raise FastMqttError("Different retain_as_published options")
+        raise FastMQTTError("Different retain_as_published options")
     if options_exist.retain_handling != options_new.retain_handling:
-        raise FastMqttError("Different retain_handling options")
+        raise FastMQTTError("Different retain_handling options")
 
 
 class MQTTRouter:
@@ -88,7 +88,7 @@ class MQTTRouter:
         retain_handling: RetainHandling | None = None,
     ) -> Subscription:
         if self._included:
-            raise FastMqttError(
+            raise FastMQTTError(
                 "Cannot register new subscriptions after router is included, "
                 "use fastmqtt.subscribe instead"
             )
