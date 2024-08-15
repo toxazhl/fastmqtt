@@ -9,7 +9,7 @@ from fastmqtt.properties import (
     SubscribeProperties,
     UnsubscribeProperties,
 )
-from fastmqtt.types import CleanStart, Message, PayloadType, SubscribeOptions
+from fastmqtt.types import CleanStart, PayloadType, RawMessage, SubscribeOptions
 
 
 class BaseConnector(ABC):
@@ -46,7 +46,7 @@ class BaseConnector(ABC):
 
         self._connect_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._disconnect_callbacks: list[Callable[[], Awaitable[None]]] = []
-        self._message_callbacks: list[Callable[[Message], Awaitable[None]]] = []
+        self._message_callbacks: list[Callable[[RawMessage], Awaitable[None]]] = []
 
     @property
     def identifier(self) -> str:
@@ -113,5 +113,5 @@ class BaseConnector(ABC):
     def add_disconnect_callback(self, callback: Callable[[], Awaitable[None]]) -> None:
         self._disconnect_callbacks.append(callback)
 
-    def add_message_callback(self, callback: Callable[[Message], Awaitable[None]]) -> None:
+    def add_message_callback(self, callback: Callable[[RawMessage], Awaitable[None]]) -> None:
         self._message_callbacks.append(callback)

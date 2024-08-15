@@ -1,11 +1,11 @@
 import enum
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 from .properties import PublishProperties
 
 if TYPE_CHECKING:
+    from .encoders import BaseDecoder
     from .fastmqtt import FastMqtt
 
 
@@ -13,21 +13,15 @@ PayloadType = str | bytes | bytearray | int | float | None
 
 
 class Payload:
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes, decoder: "BaseDecoder") -> None:
         self._data = data
+        self._decoder = decoder
 
     def raw(self) -> bytes:
         return self._data
 
-    def text(self, encoding: str = "utf-8") -> str:
-        return self._data.decode(encoding=encoding)
-
-    def json(
-        self,
-        encoder: Callable[[str], Any] = json.loads,
-        **kwargs,
-    ) -> Any:
-        return encoder(self.text(), **kwargs)
+    def decode(self) -> Any:
+        return self._decoder(self._data)
 
 
 class RetainHandling(enum.IntEnum):
@@ -45,9 +39,9 @@ class SubscribeOptions:
 
 
 @dataclass(frozen=True)
-class Message:
+class RawMessage:
     topic: str
-    payload: Payload
+    payload: bytes
     qos: int
     retain: bool
     mid: int
@@ -55,11 +49,12 @@ class Message:
 
 
 @dataclass(frozen=True)
-class MessageWithClient(Message):
+class Message(RawMessage):
+    payload: Payload
     client: "FastMqtt"
 
 
-CallbackType = Callable[[MessageWithClient], Coroutine[None, None, Any]]
+CallbackType = Callable[[Message], Coroutine[None, None, Any]]
 
 
 @dataclass

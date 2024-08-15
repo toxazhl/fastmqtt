@@ -10,7 +10,7 @@ import paho.mqtt.client
 import paho.mqtt.enums
 from aiomqtt import ProxySettings, TLSParameters, Will
 from aiomqtt.types import SocketOption
-from tenacity import RetryCallState, before_sleep_log, retry, wait_exponential
+from tenacity import RetryCallState, retry, wait_exponential
 
 from fastmqtt.connectors.base import BaseConnector
 from fastmqtt.properties import (
@@ -272,10 +272,16 @@ class AiomqttConnector(BaseConnector):
         async with aiomqtt.Client(clean_start=clean_start, **self._aiomqtt_kwargs) as client:
             try:
                 if self._first_connect:
-                    logger.info(f"Connected to {self._hostname}:{self._port} as {self.identifier}")
+                    logger.info(
+                        "Connected to %s as %s",
+                        f"{self._hostname}:{self._port}",
+                        self.identifier,
+                    )
                 else:
                     logger.info(
-                        f"Connection established to {self._hostname}:{self._port} as {self.identifier}"
+                        "Connection established to %s as %s",
+                        f"{self._hostname}:{self._port}",
+                        self.identifier,
                     )
 
                 self._first_connect = False

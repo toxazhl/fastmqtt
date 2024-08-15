@@ -1,8 +1,7 @@
 from typing import Any, Callable, Sequence, Type
 
-from aiomqtt.types import PayloadType
-
 from .connectors import AiomqttConnector, BaseConnector
+from .encoders import BaseDecoder, BaseEncoder, NoneDecoder, NoneEncoder
 from .message_handler import MessageHandler
 from .properties import ConnectProperties, PublishProperties
 from .response import ResponseContext
@@ -27,8 +26,13 @@ class FastMqtt(MqttRouter):
         connector_type: Type[BaseConnector] = AiomqttConnector,
         routers: Sequence[MqttRouter] | None = None,
         default_subscribe_options: SubscribeOptions | None = None,
+        payload_encoder: BaseEncoder = NoneEncoder(),
+        payload_decoder: BaseDecoder = NoneDecoder(),
     ):
         super().__init__(default_subscribe_options=default_subscribe_options)
+        self._payload_encoder = payload_encoder
+        self._payload_decoder = payload_decoder
+
         self._connector = connector_type(
             hostname=hostname,
             port=port,
@@ -40,7 +44,9 @@ class FastMqtt(MqttRouter):
             properties=properties,
         )
         self._subscription_manager = SubscriptionManager(self._connector)
-        self._message_handler = MessageHandler(self, self._connector, self._subscription_manager)
+        self._message_handler = MessageHandler(
+            self, self._connector, self._subscription_manager, self._payload_decoder
+        )
         self._state: dict[str, Any] = {}
 
         # self._connector.add_connect_callback(self.subscribe_all)
@@ -126,14 +132,14 @@ class FastMqtt(MqttRouter):
     async def publish(
         self,
         topic: str,
-        payload: PayloadType = None,
+        payload: Any = None,
         qos: int = 0,
         retain: bool = False,
         properties: PublishProperties | None = None,
     ) -> None:
         await self._connector.publish(
             topic=topic,
-            payload=payload,
+            payload=self._payload_encoder(payload),
             qos=qos,
             retain=retain,
             properties=properties,

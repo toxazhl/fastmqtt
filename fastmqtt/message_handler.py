@@ -3,10 +3,11 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from .connectors import BaseConnector
+from .encoders import BaseDecoder
 from .exceptions import FastMqttError
 from .properties import PublishProperties
 from .subscription_manager import Subscription, SubscriptionManager
-from .types import Message, MessageWithClient
+from .types import Message, Payload, RawMessage
 
 if TYPE_CHECKING:
     from .fastmqtt import FastMqtt
@@ -20,16 +21,28 @@ class MessageHandler:
         fastmqtt: "FastMqtt",
         connector: BaseConnector,
         subscription_manager: SubscriptionManager,
-    ):
+        payload_decoder: BaseDecoder,
+    ) -> None:
         self._fastmqtt = fastmqtt
         self._connector = connector
         self._subscription_manager = subscription_manager
+        self._payload_decoder = payload_decoder
 
         self._connector.add_message_callback(self.on_message)
 
-    async def on_message(self, message: Message) -> None:
+    async def on_message(self, raw_message: RawMessage) -> None:
+        message = Message(
+            topic=raw_message.topic,
+            payload=Payload(data=raw_message.payload, decoder=self._payload_decoder),
+            qos=raw_message.qos,
+            retain=raw_message.retain,
+            mid=raw_message.mid,
+            properties=raw_message.properties,
+            client=self._fastmqtt,
+        )
+
         if message.properties.subscription_identifier is None:
-            log.warning(f"Message has no subscription_identifier {message}")
+            log.warning(f"Message has no subscription_identifier {raw_message}")
             return
 
         for id_ in message.properties.subscription_identifier:
@@ -61,19 +74,8 @@ class MessageHandler:
         )
 
     async def _process_message(self, subscription: Subscription, message: Message) -> None:
-        message_with_client = MessageWithClient(
-            topic=message.topic,
-            payload=message.payload,
-            qos=message.qos,
-            retain=message.retain,
-            mid=message.mid,
-            properties=message.properties,
-            client=self._fastmqtt,
-        )
-
         callback_tasks = (
-            asyncio.create_task(callback(message_with_client))
-            for callback in subscription.callbacks
+            asyncio.create_task(callback(message)) for callback in subscription.callbacks
         )
         for result in asyncio.as_completed(callback_tasks):
             try:

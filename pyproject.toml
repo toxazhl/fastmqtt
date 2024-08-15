@@ -10,6 +10,10 @@ repository = "https://github.com/toxazhl/fastmqtt"
 python = "^3.10"
 aiomqtt = "^2.3.0"
 tenacity = "^9.0.0"
+msgpack = "^1.0.8"
+ormsgpack = "^1.5.0"
+orjson = "^3.10.7"
+cbor2 = "^5.6.4"
 
 [tool.poetry.dev-dependencies]
 ruff = "*"
@@ -52,6 +56,15 @@ exclude = [
     "nginx",
     "scripts",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"example/**/*.py" = [
+    "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant...
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "T201",   # print statement used
+    "F841",   # local variable is assigned to but never used
+]
+
 
 [build-system]
 requires = ["poetry-core"]

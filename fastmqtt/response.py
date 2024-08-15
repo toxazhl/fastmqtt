@@ -1,14 +1,12 @@
 import asyncio
 import itertools
 import logging
-from typing import TYPE_CHECKING, Callable
-
-from aiomqtt.types import PayloadType
+from typing import TYPE_CHECKING, Any, Callable
 
 from .exceptions import FastMqttError
 from .properties import PublishProperties
 from .subscription_manager import SubscriptionWithId
-from .types import MessageWithClient, RetainHandling
+from .types import Message, RetainHandling
 
 if TYPE_CHECKING:
     from .fastmqtt import FastMqtt
@@ -33,12 +31,13 @@ class ResponseContext:
         qos: int = 0,
         default_timeout: float | None = 60,
         correlation_generator: Callable[[], bytes] = CorrelationIntGenerator(),
+        payload_encoder: Callable[[Any], bytes] = lambda x: x,
     ):
         self._fastmqtt = fastmqtt
         self._response_topic = response_topic
         self._qos = qos
         self._default_timeout = default_timeout
-        self._futures: dict[bytes, asyncio.Future[MessageWithClient]] = {}
+        self._futures: dict[bytes, asyncio.Future[Message]] = {}
         self._subscription: SubscriptionWithId | None = None
         self._correlation_generator = correlation_generator
 
@@ -66,7 +65,7 @@ class ResponseContext:
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.close()
 
-    async def _callback(self, message: MessageWithClient) -> None:
+    async def _callback(self, message: Message) -> None:
         correlation_data = message.properties.correlation_data
         if correlation_data is None:
             log.error(f"correlation_data is None in response callback ({message.topic})")
@@ -82,12 +81,12 @@ class ResponseContext:
     async def request(
         self,
         topic: str,
-        payload: PayloadType = None,
+        payload: Any = None,
         qos: int = 0,
         retain: bool = False,
         properties: PublishProperties | None = None,
         timeout: float | None = None,
-    ) -> MessageWithClient:
+    ) -> Message:
         correlation_data = self._correlation_generator()
         if correlation_data in self._futures:
             raise FastMqttError(f"correlation_data {correlation_data} already in use")
@@ -104,7 +103,7 @@ class ResponseContext:
         properties.correlation_data = correlation_data
         properties.response_topic = self._response_topic
 
-        future = asyncio.Future[MessageWithClient]()
+        future = asyncio.Future[Message]()
         self._futures[correlation_data] = future
         try:
             async with asyncio.timeout(timeout or self._default_timeout):
