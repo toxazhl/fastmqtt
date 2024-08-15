@@ -9,7 +9,7 @@ from fastmqtt.properties import (
     SubscribeProperties,
     UnsubscribeProperties,
 )
-from fastmqtt.types import Message, PayloadType, SubscribeOptions
+from fastmqtt.types import CleanStart, Message, PayloadType, SubscribeOptions
 
 
 class BaseConnector(ABC):
@@ -23,6 +23,7 @@ class BaseConnector(ABC):
         will=None,
         keepalive: int = 60,
         properties: ConnectProperties | None = None,
+        clean_start: CleanStart = CleanStart.FIRST_ONLY,
     ):
         if identifier is None:
             identifier = f"fastmqtt-{uuid.uuid4()}"
@@ -35,10 +36,13 @@ class BaseConnector(ABC):
         self._will = will
         self._keepalive = keepalive
         self._properties = properties
+        self._clean_start = clean_start
 
         self.connected_event = asyncio.Event()
         self.disconnected_event = asyncio.Event()
         self.reconnect_event = asyncio.Event()
+
+        self._first_connect = True
 
         self._connect_callbacks: list[Callable[[], Awaitable[None]]] = []
         self._disconnect_callbacks: list[Callable[[], Awaitable[None]]] = []

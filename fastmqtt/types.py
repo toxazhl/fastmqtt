@@ -67,3 +67,14 @@ class Subscription:
     callbacks: list[CallbackType]
     topic: str
     options: SubscribeOptions
+
+
+@dataclass
+class SubscriptionWithId(Subscription):
+    id: int
+
+
+class CleanStart(enum.IntEnum):
+    NO = 0
+    ALWAYS = 1
+    FIRST_ONLY = 2  # Clean start only on first connection, do not clean start on reconnect

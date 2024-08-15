@@ -1,8 +1,12 @@
 import asyncio
+import logging
 
 from fastmqtt import FastMqtt, Message
 
-fastmqtt = FastMqtt("test.mosquitto.org")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+fastmqtt = FastMqtt("test.mosquitto.org", keepalive=2)
 
 
 # Use decorator to subscribe to a topic before connecting
@@ -22,7 +26,7 @@ async def main():
         await fastmqtt.publish("my/topic/1", "Hello from FastMqtt!")
         await fastmqtt.publish("my/topic/2", "Hello from FastMqtt!")
         await fastmqtt.publish("my/topic/3", "Hello from FastMqtt!")
-        await asyncio.sleep(1)
+        await asyncio.sleep(70)
 
 
 if __name__ == "__main__":

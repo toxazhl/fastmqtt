@@ -5,15 +5,10 @@ from aiomqtt.types import PayloadType
 from .connectors import AiomqttConnector, BaseConnector
 from .message_handler import MessageHandler
 from .properties import ConnectProperties, PublishProperties
-
-# from .response import ResponseContext
+from .response import ResponseContext
 from .router import MqttRouter
-from .subscription_manager import (
-    CallbackType,
-    Subscription,
-    SubscriptionManager,
-)
-from .types import RetainHandling, SubscribeOptions
+from .subscription_manager import CallbackType, SubscriptionManager
+from .types import RetainHandling, SubscribeOptions, SubscriptionWithId
 
 WebSocketHeaders = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
 
@@ -48,7 +43,7 @@ class FastMqtt(MqttRouter):
         self._message_handler = MessageHandler(self, self._connector, self._subscription_manager)
         self._state: dict[str, Any] = {}
 
-        self._connector.add_connect_callback(self.subscribe_all)
+        # self._connector.add_connect_callback(self.subscribe_all)
         self._routers = routers or []
         for router in self._routers:
             self.include_router(router)
@@ -91,7 +86,7 @@ class FastMqtt(MqttRouter):
         no_local: bool | None = None,
         retain_as_published: bool | None = None,
         retain_handling: RetainHandling | None = None,
-    ) -> Subscription:
+    ) -> SubscriptionWithId:
         subscription = self._register(
             callback=callback,
             topic=topic,
@@ -102,16 +97,31 @@ class FastMqtt(MqttRouter):
         )
         if len(subscription.callbacks) == 1:
             # Only subscribe if it's the first callback
-            await self._subscription_manager.subscribe(subscription)
+            return await self._subscription_manager.subscribe(subscription)
 
-        return subscription
+        # TODO: Refactor it
+        return next(
+            (
+                sub
+                for sub in self._subscription_manager._id_to_subscription.values()
+                if sub.topic == topic and sub.callbacks == subscription.callbacks
+            ),
+        )
 
-    async def subscribe_all(self) -> None:
+    async def subscribe_all(self) -> list[SubscriptionWithId]:
         self._subscribed = True
-        await self._subscription_manager.subscribe_multiple(self._subscriptions)
+        return await self._subscription_manager.subscribe_multiple(self._subscriptions)
 
-    async def unsubscribe(self, identifier: int, callback: CallbackType | None = None) -> None:
-        await self._subscription_manager.unsubscribe(identifier, callback)
+    async def unsubscribe(
+        self,
+        identifier: int | None = None,
+        topic: str | None = None,
+        subscription: SubscriptionWithId | None = None,
+        callback: CallbackType | None = None,
+    ) -> None:
+        await self._subscription_manager.unsubscribe(
+            identifier=identifier, topic=topic, subscription=subscription, callback=callback
+        )
 
     async def publish(
         self,
@@ -129,17 +139,17 @@ class FastMqtt(MqttRouter):
             properties=properties,
         )
 
-    # def response_context(
-    #     self,
-    #     response_topic: str,
-    #     qos: int = 0,
-    #     default_timeout: float | None = 60,
-    #     **kwargs,
-    # ) -> ResponseContext:
-    #     return ResponseContext(
-    #         self,
-    #         response_topic,
-    #         qos,
-    #         default_timeout,
-    #         **kwargs,
-    #     )
+    def response_context(
+        self,
+        response_topic: str,
+        qos: int = 0,
+        default_timeout: float | None = 60,
+        **kwargs,
+    ) -> ResponseContext:
+        return ResponseContext(
+            self,
+            response_topic,
+            qos,
+            default_timeout,
+            **kwargs,
+        )

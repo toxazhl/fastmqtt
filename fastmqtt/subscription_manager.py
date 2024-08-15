@@ -3,10 +3,10 @@ import asyncio
 from .connectors import BaseConnector
 from .exceptions import FastMqttError
 from .properties import SubscribeProperties
-from .types import CallbackType, Subscription
+from .types import CallbackType, Subscription, SubscriptionWithId
 
 
-class IdentifierManager:
+class IdManager:
     def __init__(self, max_id: int = 268435455):
         self.max_id = max_id
         self.current_id = 0
@@ -41,26 +41,35 @@ class IdentifierManager:
 class SubscriptionManager:
     def __init__(self, connector: BaseConnector):
         self._connector = connector
-        self._identifier_manager = IdentifierManager()
-        self._subscriptions_map: dict[int, Subscription] = {}
+        self._id_manager = IdManager()
+        self._id_to_subscription: dict[int, SubscriptionWithId] = {}
 
-    def get_subscription(self, identifier: int) -> Subscription | None:
-        return self._subscriptions_map.get(identifier)
+    def get_subscription(self, identifier: int) -> SubscriptionWithId | None:
+        return self._id_to_subscription.get(identifier)
 
-    async def subscribe(self, subscription: Subscription) -> int:
-        identifier = self._identifier_manager.get_id()
-        properties = SubscribeProperties(subscription_identifier=identifier)
+    async def subscribe(self, subscription: Subscription) -> SubscriptionWithId:
+        identifier = self._id_manager.get_id()
         await self._connector.subscribe(
             topic=subscription.topic,
             options=subscription.options,
-            properties=properties,
+            properties=SubscribeProperties(
+                subscription_identifier=identifier,
+            ),
         )
 
-        self._subscriptions_map[identifier] = subscription
-        return identifier
+        subscription_with_id = SubscriptionWithId(
+            callbacks=subscription.callbacks,
+            topic=subscription.topic,
+            options=subscription.options,
+            id=identifier,
+        )
+        self._id_to_subscription[identifier] = subscription_with_id
+        return subscription_with_id
 
-    async def subscribe_multiple(self, subscriptions: list[Subscription]) -> list[int]:
-        if self._identifier_manager.get_available_count() < len(subscriptions):
+    async def subscribe_multiple(
+        self, subscriptions: list[Subscription]
+    ) -> list[SubscriptionWithId]:
+        if self._id_manager.get_available_count() < len(subscriptions):
             raise FastMqttError("Not enough subscription identifiers available")
 
         await asyncio.sleep(0.1)
@@ -68,15 +77,33 @@ class SubscriptionManager:
             *[self.subscribe(subscription) for subscription in subscriptions]
         )
 
-    async def unsubscribe(self, identifier: int, callback: CallbackType | None = None) -> None:
-        subscription = self._subscriptions_map.get(identifier)
+    async def unsubscribe(
+        self,
+        identifier: int | None = None,
+        topic: str | None = None,
+        subscription: SubscriptionWithId | None = None,
+        callback: CallbackType | None = None,
+    ) -> None:
+        if len([arg for arg in [identifier, topic, subscription] if arg is not None]) != 1:
+            raise ValueError(
+                "Exactly one of arguments (identifier, topic or subscription) must be provided"
+            )
+
+        if identifier is not None:
+            subscription = self._id_to_subscription.get(identifier)
+        if topic is not None:
+            subscription = next(
+                (sub for sub in self._id_to_subscription.values() if sub.topic == topic),
+                None,
+            )
+
         if subscription is None:
-            raise FastMqttError(f"Unknown subscription identifier {identifier}")
+            raise FastMqttError("Subscription not found")
 
         if callback is not None:
             subscription.callbacks.remove(callback)
 
         if callback is None or not subscription.callbacks:
             await self._connector.unsubscribe(topic=subscription.topic)
-            self._subscriptions_map.pop(identifier, None)
-            self._identifier_manager.put_back(identifier)
+            self._id_to_subscription.pop(subscription.id, None)
+            self._id_manager.put_back(subscription.id)

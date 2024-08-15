@@ -10,6 +10,7 @@ import paho.mqtt.client
 import paho.mqtt.enums
 from aiomqtt import ProxySettings, TLSParameters, Will
 from aiomqtt.types import SocketOption
+from tenacity import RetryCallState, before_sleep_log, retry, wait_exponential
 
 from fastmqtt.connectors.base import BaseConnector
 from fastmqtt.properties import (
@@ -18,7 +19,7 @@ from fastmqtt.properties import (
     SubscribeProperties,
     UnsubscribeProperties,
 )
-from fastmqtt.types import PayloadType, SubscribeOptions
+from fastmqtt.types import CleanStart, PayloadType, SubscribeOptions
 
 from .convertors.message import aiomqtt_to_fastmqtt_message
 from .convertors.options import fastmqtt_to_paho_subscribe_options
@@ -28,6 +29,25 @@ logger = logging.getLogger(__name__)
 WebSocketHeaders = dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
 
 
+def on_reconnect_log(retry_state: RetryCallState) -> None:
+    if retry_state.outcome is None:
+        raise RuntimeError("log_it() called before outcome was set")
+
+    if retry_state.next_action is None:
+        raise RuntimeError("log_it() called before next_action was set")
+
+    if retry_state.outcome.failed:
+        ex = retry_state.outcome.exception()
+        verb, value = "raised", f"{ex.__class__.__name__}: {ex}"
+
+    else:
+        verb, value = "returned", retry_state.outcome.result()
+
+    logger.warning(
+        f"Reconnecting in {retry_state.next_action.sleep} seconds, as it {verb} {value}"
+    )
+
+
 def retry_disconected(max_retries: int = 3):
     def decorator(func):
         @wraps(func)
@@ -35,7 +55,6 @@ def retry_disconected(max_retries: int = 3):
             self: AiomqttConnector = args[0]
             last_error = None
             for _ in range(max_retries):
-                last_error = None
                 try:
                     return await func(*args, **kwargs)
                 except aiomqtt.exceptions.MqttCodeError as e:
@@ -67,7 +86,7 @@ class AiomqttConnector(BaseConnector):
         timeout: float | None = None,
         bind_address: str | None = None,
         bind_port: int | None = None,
-        clean_start: paho.mqtt.client.CleanStartOption | None = None,
+        clean_start: CleanStart = CleanStart.FIRST_ONLY,
         max_queued_incoming_messages: int | None = None,
         max_queued_outgoing_messages: int | None = None,
         max_inflight_messages: int | None = None,
@@ -93,7 +112,6 @@ class AiomqttConnector(BaseConnector):
             "keepalive": keepalive,
             "bind_address": bind_address,
             "bind_port": bind_port,
-            "clean_start": clean_start,
             "max_queued_incoming_messages": max_queued_incoming_messages,
             "max_queued_outgoing_messages": max_queued_outgoing_messages,
             "max_inflight_messages": max_inflight_messages,
@@ -121,6 +139,7 @@ class AiomqttConnector(BaseConnector):
             will=will,
             keepalive=keepalive,
             properties=properties,
+            clean_start=clean_start,
         )
 
     def _on_connect(self) -> None:
@@ -242,22 +261,27 @@ class AiomqttConnector(BaseConnector):
 
         await self.disconnected_event.wait()
 
+    @retry(
+        wait=wait_exponential(multiplier=0.1, max=5, exp_base=2.5), before_sleep=on_reconnect_log
+    )
     async def _maintain_connection(self) -> None:
-        while True:
-            try:
-                async with aiomqtt.Client(**self._aiomqtt_kwargs) as client:
-                    logger.info(
-                        "Connected to %s:%s",
-                        self._aiomqtt_kwargs["hostname"],
-                        self._aiomqtt_kwargs["port"],
-                    )
-                    self._aiomqtt_client = client
-                    self._on_connect()
-                    await self._process_messages(client)
+        clean_start = self._clean_start == CleanStart.ALWAYS or (
+            self._first_connect and self._clean_start == CleanStart.FIRST_ONLY
+        )
 
-            except Exception as e:
-                logger.warning(f"Connection error: {e.__class__.__name__}: {e}, reconnecting...")
-                await asyncio.sleep(5)
+        async with aiomqtt.Client(clean_start=clean_start, **self._aiomqtt_kwargs) as client:
+            try:
+                if self._first_connect:
+                    logger.info(f"Connected to {self._hostname}:{self._port} as {self.identifier}")
+                else:
+                    logger.info(
+                        f"Connection established to {self._hostname}:{self._port} as {self.identifier}"
+                    )
+
+                self._first_connect = False
+                self._aiomqtt_client = client
+                self._on_connect()
+                await self._process_messages(client)
 
             finally:
                 self._aiomqtt_client = None
@@ -266,5 +290,4 @@ class AiomqttConnector(BaseConnector):
     async def _process_messages(self, client: aiomqtt.Client) -> None:
         async for aiomqtt_message in client.messages:
             fastmqtt_message = aiomqtt_to_fastmqtt_message(aiomqtt_message)
-
             asyncio.gather(*[cb(fastmqtt_message) for cb in self._message_callbacks])

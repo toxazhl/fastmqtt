@@ -1,117 +1,121 @@
-# import asyncio
-# import itertools
-# import logging
-# from typing import TYPE_CHECKING, Any, Callable
+import asyncio
+import itertools
+import logging
+from typing import TYPE_CHECKING, Callable
 
-# from aiomqtt.types import PayloadType
+from aiomqtt.types import PayloadType
 
-# from .exceptions import FastMqttError
-# from .structures import Message
-# from .subscription_manager import Retain, Subscription
+from .exceptions import FastMqttError
+from .properties import PublishProperties
+from .subscription_manager import SubscriptionWithId
+from .types import MessageWithClient, RetainHandling
 
-# if TYPE_CHECKING:
-#     from .fastmqtt import FastMqtt
+if TYPE_CHECKING:
+    from .fastmqtt import FastMqtt
 
-# log = logging.getLogger(__name__)
-
-
-# class CorrelationIntGenerator:
-#     def __init__(self, limit: int = 2**16):
-#         self._correlation_data_counter = itertools.cycle(range(1, limit))
-
-#     def __call__(self) -> bytes:
-#         val = next(self._correlation_data_counter)
-#         return val.to_bytes((val.bit_length() + 7) // 8, "big")
+log = logging.getLogger(__name__)
 
 
-# class ResponseContext:
-#     def __init__(
-#         self,
-#         fastmqtt: "FastMqtt",
-#         response_topic: str,
-#         qos: int = 0,
-#         default_timeout: float | None = 60,
-#         correlation_generator: Callable[[], bytes] = CorrelationIntGenerator(),
-#     ):
-#         self._fastmqtt = fastmqtt
-#         self._response_topic = response_topic
-#         self._qos = qos
-#         self._default_timeout = default_timeout
-#         self._futures: dict[bytes, asyncio.Future[Message]] = {}
-#         self._subscription: Subscription | None = None
-#         self._identifier: int | None = None
-#         self._correlation_generator = correlation_generator
+class CorrelationIntGenerator:
+    def __init__(self, limit: int = 2**16):
+        self._correlation_data_counter = itertools.cycle(range(1, limit))
 
-#     async def subscribe(self) -> None:
-#         self._subscription = self._fastmqtt.register(
-#             self._callback,
-#             self._response_topic,
-#             self._qos,
-#             retain_handling=Retain.DO_NOT_SEND,
-#         )
-#         self._identifier = await self._fastmqtt._sub_manager.subscribe(self._subscription)
+    def __call__(self) -> bytes:
+        val = next(self._correlation_data_counter)
+        return val.to_bytes((val.bit_length() + 7) // 8, "big")
 
-#     async def close(self) -> None:
-#         if self._identifier is not None:
-#             await self._fastmqtt._sub_manager.unsubscribe(self._identifier, self._callback)
 
-#         self._identifier = None
-#         self._subscription = None
+class ResponseContext:
+    def __init__(
+        self,
+        fastmqtt: "FastMqtt",
+        response_topic: str,
+        qos: int = 0,
+        default_timeout: float | None = 60,
+        correlation_generator: Callable[[], bytes] = CorrelationIntGenerator(),
+    ):
+        self._fastmqtt = fastmqtt
+        self._response_topic = response_topic
+        self._qos = qos
+        self._default_timeout = default_timeout
+        self._futures: dict[bytes, asyncio.Future[MessageWithClient]] = {}
+        self._subscription: SubscriptionWithId | None = None
+        self._correlation_generator = correlation_generator
 
-#         for future in self._futures.values():
-#             future.cancel()
+    async def subscribe(self) -> None:
+        self._subscription = await self._fastmqtt.subscribe(
+            callback=self._callback,
+            topic=self._response_topic,
+            qos=self._qos,
+            retain_handling=RetainHandling.DO_NOT_SEND,
+        )
 
-#     async def __aenter__(self):
-#         await self.subscribe()
-#         return self
+    async def close(self) -> None:
+        if self._subscription is not None:
+            await self._fastmqtt.unsubscribe(subscription=self._subscription)
 
-#     async def __aexit__(self, exc_type, exc_value, traceback):
-#         await self.close()
+        self._subscription = None
 
-#     async def _callback(self, message: Message) -> None:
-#         correlation_data = message.properties.get("CorrelationData")
-#         if correlation_data is None:
-#             raise FastMqttError(f"correlation_data is None in response callback ({message.topic})")
+        for future in self._futures.values():
+            future.cancel()
 
-#         future = self._futures.pop(correlation_data, None)
-#         if future is None:
-#             log.warning(f"correlation_data {correlation_data} not found in futures")
-#             return
+    async def __aenter__(self):
+        await self.subscribe()
+        return self
 
-#         future.set_result(message)
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
 
-#     async def request(
-#         self,
-#         topic: str,
-#         payload: PayloadType = None,
-#         qos: int = 0,
-#         retain: bool = False,
-#         properties: dict[str, Any] | None = None,
-#         timeout: float | None = None,
-#     ) -> Message:
-#         if properties is None:
-#             properties = {}
+    async def _callback(self, message: MessageWithClient) -> None:
+        correlation_data = message.properties.correlation_data
+        if correlation_data is None:
+            log.error(f"correlation_data is None in response callback ({message.topic})")
+            return
 
-#         correlation_data = self._correlation_generator()
+        future = self._futures.pop(correlation_data, None)
+        if future is None:
+            log.error(f"correlation_data {correlation_data} not found in futures")
+            return
 
-#         properties["CorrelationData"] = correlation_data
-#         properties["ResponseTopic"] = self._response_topic
+        future.set_result(message)
 
-#         if correlation_data in self._futures:
-#             raise FastMqttError(f"correlation_data {correlation_data} already in use")
+    async def request(
+        self,
+        topic: str,
+        payload: PayloadType = None,
+        qos: int = 0,
+        retain: bool = False,
+        properties: PublishProperties | None = None,
+        timeout: float | None = None,
+    ) -> MessageWithClient:
+        correlation_data = self._correlation_generator()
+        if correlation_data in self._futures:
+            raise FastMqttError(f"correlation_data {correlation_data} already in use")
 
-#         future = asyncio.Future[Message]()
-#         self._futures[correlation_data] = future
-#         try:
-#             async with asyncio.timeout(timeout or self._default_timeout):
-#                 await self._fastmqtt.publish(
-#                     topic=topic,
-#                     payload=payload,
-#                     qos=qos,
-#                     retain=retain,
-#                     properties=properties,
-#                 )
-#                 return await future
+        if properties is None:
+            properties = PublishProperties()
 
-#         finally:
-#             self._futures.pop(correlation_data, None)
+        if properties.correlation_data is not None:
+            raise FastMqttError("properties.correlation_data is not allowed in request")
+
+        if properties.response_topic is not None:
+            raise FastMqttError("properties.response_topic is not allowed in request")
+
+        properties.correlation_data = correlation_data
+        properties.response_topic = self._response_topic
+
+        future = asyncio.Future[MessageWithClient]()
+        self._futures[correlation_data] = future
+        try:
+            async with asyncio.timeout(timeout or self._default_timeout):
+                await self._fastmqtt.publish(
+                    topic=topic,
+                    payload=payload,
+                    qos=qos,
+                    retain=retain,
+                    properties=properties,
+                )
+                return await future
+
+        finally:
+            self._futures.pop(correlation_data, None)

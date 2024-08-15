@@ -32,13 +32,11 @@ class MessageHandler:
             log.warning(f"Message has no subscription_identifier {message}")
             return
 
-        for identifier in message.properties.subscription_identifier:
-            subscription = self._subscription_manager.get_subscription(identifier)
+        for id_ in message.properties.subscription_identifier:
+            subscription = self._subscription_manager.get_subscription(id_)
 
             if subscription is None:
-                log.error(
-                    f"Message has unknown subscription_identifier {identifier} ({message.topic})"
-                )
+                log.error(f"Message has unknown subscription_identifier {id_} ({message.topic})")
                 continue
 
             asyncio.create_task(self._process_message(subscription, message))
