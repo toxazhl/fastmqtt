@@ -1,22 +1,22 @@
 import asyncio
 
-from fastmqtt import FastMQTT, Message, MQTTRouter
+from fastmqtt import FastMqtt, Message, MqttRouter
 
-router = MQTTRouter()
+router = MqttRouter()
 
 
 @router.on_message("my/topic")
 async def message_handler(message: Message):
-    database = message.fastmqtt["database"]
+    database = message.client["database"]
     ...
 
 
 async def main():
-    fastmqtt = FastMQTT("test.mosquitto.org", routers=[router])
+    fastmqtt = FastMqtt("test.mosquitto.org", routers=[router])
     fastmqtt["database"] = "my_database"  # Pass some data to message handlers
 
     async with fastmqtt:
-        await fastmqtt.publish("my/topic", "Hello from FastMQTT!")
+        await fastmqtt.publish("my/topic", "Hello from FastMqtt!")
         await asyncio.sleep(5)  # Keep running for a bit
 
 

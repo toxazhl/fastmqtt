@@ -1,14 +1,25 @@
-from .exceptions import FastMQTTError
-from .fastmqtt import FastMQTT
-from .router import MQTTRouter
-from .structures import Message
-from .subscription_manager import Retain, Subscription
+from .exceptions import FastMqttError
+from .fastmqtt import FastMqtt
+from .router import MqttRouter
+from .types import (
+    CallbackType,
+    Payload,
+    PayloadType,
+    RetainHandling,
+    SubscribeOptions,
+    Subscription,
+)
+from .types import MessageWithClient as Message
 
 __all__ = [
-    "FastMQTT",
-    "FastMQTTError",
+    "FastMqtt",
+    "MqttRouter",
+    "CallbackType",
     "Message",
-    "MQTTRouter",
-    "Retain",
+    "Payload",
+    "PayloadType",
+    "RetainHandling",
+    "SubscribeOptions",
     "Subscription",
+    "FastMqttError",
 ]

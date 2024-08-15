@@ -1,2 +1,2 @@
-class FastMQTTError(Exception):
+class FastMqttError(Exception):
     pass

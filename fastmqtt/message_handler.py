@@ -1,95 +1,87 @@
 import asyncio
-import contextlib
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .exceptions import FastMQTTError
-from .structures import Message
-from .subscription_manager import Subscription
+from .connectors import BaseConnector
+from .exceptions import FastMqttError
+from .properties import PublishProperties
+from .subscription_manager import Subscription, SubscriptionManager
+from .types import Message, MessageWithClient
 
 if TYPE_CHECKING:
-    from .fastmqtt import FastMQTT
+    from .fastmqtt import FastMqtt
 
 log = logging.getLogger(__name__)
 
 
 class MessageHandler:
-    def __init__(self, fastmqtt: "FastMQTT"):
-        self.fastmqtt = fastmqtt
-        self._messages_handler_lock = asyncio.Lock()
-        self._messages_handler_task = None
+    def __init__(
+        self,
+        fastmqtt: "FastMqtt",
+        connector: BaseConnector,
+        subscription_manager: SubscriptionManager,
+    ):
+        self._fastmqtt = fastmqtt
+        self._connector = connector
+        self._subscription_manager = subscription_manager
 
-    async def __aenter__(self):
-        self._messages_handler_task = asyncio.create_task(self._messages_handler())
-        return self
+        self._connector.add_message_callback(self.on_message)
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if self._messages_handler_task is None:
+    async def on_message(self, message: Message) -> None:
+        if message.properties.subscription_identifier is None:
+            log.warning(f"Message has no subscription_identifier {message}")
             return
 
-        self._messages_handler_task.cancel()
+        for identifier in message.properties.subscription_identifier:
+            subscription = self._subscription_manager.get_subscription(identifier)
 
-        with contextlib.suppress(asyncio.CancelledError):
-            await self._messages_handler_task
+            if subscription is None:
+                log.error(
+                    f"Message has unknown subscription_identifier {identifier} ({message.topic})"
+                )
+                continue
 
-        self._messages_handler_task = None
+            asyncio.create_task(self._process_message(subscription, message))
 
-    async def _wrap_message(
-        self,
-        subscription: Subscription,
-        message: Message,
-    ) -> None:
-        results = await asyncio.gather(*(callback(message) for callback in subscription.callbacks))
-        response_topic = message.properties.get("ResponseTopic")
+    async def _handle_result(self, result: Any, message: Message) -> None:
+        if result is None:
+            return
+
+        if message.properties.response_topic is None:
+            raise FastMqttError("Callback returned result, but message has no response_topic")
 
         response_properties = None
-        if "CorrelationData" in message.properties:
-            response_properties = {"CorrelationData": message.properties["CorrelationData"]}
+        if message.properties.correlation_data is not None:
+            response_properties = PublishProperties(
+                correlation_data=message.properties.correlation_data
+            )
 
-        for result in results:
-            if result is not None and response_topic is None:
-                raise FastMQTTError("Callback returned result, but message has no response_topic")
+        await self._fastmqtt.publish(
+            topic=message.properties.response_topic,
+            payload=result,
+            properties=response_properties,
+        )
 
-            if response_topic is not None:
-                await self.fastmqtt.publish(
-                    response_topic,
-                    result,
-                    properties=response_properties,
-                )
+    async def _process_message(self, subscription: Subscription, message: Message) -> None:
+        message_with_client = MessageWithClient(
+            topic=message.topic,
+            payload=message.payload,
+            qos=message.qos,
+            retain=message.retain,
+            mid=message.mid,
+            properties=message.properties,
+            client=self._fastmqtt,
+        )
 
-    async def _messages_handler(self) -> None:
-        if self._messages_handler_lock.locked():
-            raise FastMQTTError("Messages handler is already running")
+        callback_tasks = (
+            asyncio.create_task(callback(message_with_client))
+            for callback in subscription.callbacks
+        )
+        for result in asyncio.as_completed(callback_tasks):
+            try:
+                result = await result
+            except Exception as e:
+                log.exception(f"Error in callback {e}")
+                continue
 
-        async with self._messages_handler_lock:
-            while True:
-                try:
-                    async for message in self.fastmqtt.client.messages:
-                        message = Message._from_aiomqtt_message(self.fastmqtt, message)
-                        if "SubscriptionIdentifier" not in message.properties:
-                            log.warning(
-                                "Message has no SubscriptionIdentifier (%s)",
-                                message.topic,
-                            )
-                            continue
-
-                        identifiers = message.properties["SubscriptionIdentifier"]
-
-                        for identifier in identifiers:
-                            subscription = self.fastmqtt._subscriptions_map.get(identifier)
-
-                            if subscription is None:
-                                log.error(
-                                    "Message has unknown SubscriptionIdentifier %s (%s)",
-                                    identifier,
-                                    message.topic,
-                                )
-                                continue
-
-                            asyncio.create_task(self._wrap_message(subscription, message))
-
-                except asyncio.CancelledError:
-                    return
-
-                except Exception as e:
-                    log.exception("Error in messages handler: %s", e)
+            await self._handle_result(result, message)

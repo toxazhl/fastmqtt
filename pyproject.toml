@@ -1,29 +1,24 @@
 [tool.poetry]
 name = "fastmqtt"
-version = "0.1.5"
+version = "0.2.0"
 description = ""
 authors = ["toxazhl <zhltoxa@gmail.com>"]
 readme = "README.md"
 repository = "https://github.com/toxazhl/fastmqtt"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-aiomqtt = "^2.1.0"
-libcst = "^1.3.1"
+python = "^3.10"
+aiomqtt = "^2.3.0"
 
 [tool.poetry.dev-dependencies]
-libcst = "*"
-black = "*"
 ruff = "*"
 
-[tool.black]
-line-length = 99
-exclude = "\\.?venv|\\.?tests|\\.cache"
-
-
 [tool.ruff]
-target-version = "py38"
 line-length = 99
+target-version = "py310"
+
+
+[tool.ruff.lint]
 select = [
     "C",
     "DTZ",
@@ -31,7 +26,6 @@ select = [
     "F",
     "I",
     "ICN",
-    "ISC",
     "N",
     "PLC",
     "PLE",
@@ -52,9 +46,11 @@ exclude = [
     ".cache",
     "build",
     "dist",
+    "logs",
+    "media",
+    "nginx",
     "scripts",
 ]
-
 
 [build-system]
 requires = ["poetry-core"]

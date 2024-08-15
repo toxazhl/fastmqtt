@@ -1,6 +1,6 @@
-# FastMQTT
+# FastMqtt
 
-A performant, flexible, and user-friendly MQTT client library built on top of aiomqtt. FastMQTT simplifies message handling, advanced subscriptions, and convenient request-response patterns within the MQTT protocol.
+A performant, flexible, and user-friendly MQTT client library built on top of aiomqtt. FastMqtt simplifies message handling, advanced subscriptions, and convenient request-response patterns within the MQTT protocol.
 
 **Key Features**
 
@@ -22,22 +22,29 @@ pip install fastmqtt
 ```python
 import asyncio
 
-from fastmqtt import FastMQTT, Message, MQTTRouter
+from fastmqtt import FastMqtt, Message
 
-router = MQTTRouter()
+fastmqtt = FastMqtt("test.mosquitto.org")
 
 
-@router.on_message("my/topic")  # Subscribe and handle incoming messages
+# Use decorator to subscribe to a topic before connecting
+@fastmqtt.on_message("my/topic/1")  # Subscribe and handle incoming messages
 async def message_handler(message: Message):
     print(f"Message received: {message.payload.text()} on topic {message.topic}")
 
 
 async def main():
-    fastmqtt = FastMQTT("test.mosquitto.org", routers=[router])
+    # Use register method to subscribe to a topic before connecting
+    fastmqtt.register(message_handler, "my/topic/2")
+    async with fastmqtt:  # Connect and automatically subscribe to registered topics
+        # Use subscribe method to subscribe to a topic after connecting
+        await fastmqtt.subscribe(message_handler, "my/topic/3")
 
-    async with fastmqtt:  # Connect and automatically handle subscriptions
-        await fastmqtt.publish("my/topic", "Hello from FastMQTT!")
-        await asyncio.sleep(5)  # Keep running for a bit
+        # Publish a message to a topic
+        await fastmqtt.publish("my/topic/1", "Hello from FastMqtt!")
+        await fastmqtt.publish("my/topic/2", "Hello from FastMqtt!")
+        await fastmqtt.publish("my/topic/3", "Hello from FastMqtt!")
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
@@ -47,6 +54,6 @@ if __name__ == "__main__":
 
 **Contributions**
 
-We welcome contributions to improve FastMQTT! Please open issues for bug reports or feature suggestions, and fork the repository to submit pull requests.
+We welcome contributions to improve FastMqtt! Please open issues for bug reports or feature suggestions, and fork the repository to submit pull requests.
 
 Let me know if you'd like modifications or have specific aspects you want to emphasize in the README! 
