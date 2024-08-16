@@ -58,6 +58,14 @@ class FastMQTT(MQTTRouter):
     def client_id(self) -> str:
         return self._connector._client_id
 
+    @property
+    def is_started(self) -> bool:
+        return not self._connector._first_connect
+
+    @property
+    def is_connected(self) -> bool:
+        return self._connector.connected_event.is_set()
+
     def __setitem__(self, key: str, value: Any) -> None:
         self._state[key] = value
 
