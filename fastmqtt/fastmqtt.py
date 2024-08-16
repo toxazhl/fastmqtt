@@ -103,6 +103,7 @@ class FastMQTT(MQTTRouter):
         )
         if len(subscription.callbacks) == 1:
             # Only subscribe if it's the first callback
+            await self._connector.connected_event.wait()
             return await self._subscription_manager.subscribe(subscription)
 
         # TODO: Refactor it

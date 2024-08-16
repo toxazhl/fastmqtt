@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
 FastMQTT offers multiple ways to manage subscriptions:
 
-1. Using the `@on_message` decorator, only before connecting:
+1. Using the `@on_message` decorator, can be used only before connecting:
 
 ```python
 @fastmqtt.on_message("my/topic")
@@ -60,13 +60,13 @@ async def handler(message: Message):
     ...
 ```
 
-2. Using the `register` method before connecting, only before connecting:
+2. Using the `register` method before connecting, can be used only before connecting:
 
 ```python
 fastmqtt.register(handler, "my/topic")
 ```
 
-3. Using the `subscribe` method after connecting, only after connecting:
+3. Using the `subscribe` method after connecting, can be used always:
 
 ```python
 await fastmqtt.subscribe(handler, "my/topic")
